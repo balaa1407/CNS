@@ -81,15 +81,21 @@ def normalize_header_for_extension(ext: str, pdfname: str) -> str:
 
 def main():
     pdf_dir = Path(sys.argv[1]) if len(sys.argv) > 1 else Path('.')
-    out_dir = Path(sys.argv[2]) if len(sys.argv) > 2 else Path('extracted_code')
-    out_dir.mkdir(parents=True, exist_ok=True)
+    out_dir_arg = sys.argv[2] if len(sys.argv) > 2 else 'extracted_code'
+    inplace = out_dir_arg == 'inplace'
+    out_dir = Path(out_dir_arg) if not inplace else None
+    if out_dir is not None:
+        out_dir.mkdir(parents=True, exist_ok=True)
 
     pdfs = list(pdf_dir.rglob('*.pdf'))
     if not pdfs:
         print(f"No PDF files found under {pdf_dir.resolve()}")
         return
 
-    print(f"Found {len(pdfs)} PDF(s). Extracting to: {out_dir.resolve()}")
+    if inplace:
+        print(f"Found {len(pdfs)} PDF(s). Extracting files next to each PDF (inplace mode)")
+    else:
+        print(f"Found {len(pdfs)} PDF(s). Extracting to: {out_dir.resolve()}")
 
     for pdf in pdfs:
         try:
@@ -108,13 +114,18 @@ def main():
             ext = detect_language_and_extension(text)
             header = normalize_header_for_extension(ext, pdf.name)
 
-            outname = pdf.stem + ext
-            outfile = out_dir / outname
+            if inplace:
+                outfile = pdf.with_suffix(ext)
+            else:
+                outname = pdf.stem + ext
+                outfile = out_dir / outname
+
             with outfile.open('w', encoding='utf-8') as f:
                 f.write(header)
                 f.write(text)
 
-            print(f"Wrote: {outfile} (detected {ext})")
+            location = f"next to {pdf.name}" if inplace else str(outfile)
+            print(f"Wrote: {outfile} (detected {ext}) -> {location}")
         except Exception as exc:
             print(f"Failed to extract {pdf}: {exc}")
 
